@@ -138,15 +138,23 @@ export async function connectMetaMask(req: Request, res: Response): Promise<void
     const { address } = req.body;
     const userId = req.user?.userId;
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { metamaskAddress: address },
-      { new: true }
-    ).select('-password -otp');
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (!user.isVerified) {
+      res.status(403).json({ error: 'Please verify your email before connecting MetaMask' });
+      return;
+    }
+
+    user.metamaskAddress = address;
+    await user.save();
 
     res.json({
       message: 'MetaMask connected successfully',
-      address: user?.metamaskAddress,
+      address: user.metamaskAddress,
     });
   } catch (error) {
     console.error('Connect MetaMask error:', error);

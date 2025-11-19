@@ -30,24 +30,39 @@ export async function signup(req: Request, res: Response): Promise<void> {
 
     // Generate OTP
     const otp = generateOTP();
+    // Try to send OTP email first. Only persist user if email was sent successfully.
+    try {
+      await sendOTPEmail(email, otp);
+    } catch (err) {
+      console.error('Signup - email send failed, aborting user creation:', err);
+      res.status(500).json({ error: 'Failed to send verification email' });
+      return;
+    }
 
-    // Create user
-    const user = await User.create({
-      username,
-      email,
-      password: hashedPassword,
-      otp,
-      otpCreatedAt: new Date(),
-      isVerified: false,
-    });
+    // Create user after OTP was sent
+    try {
+      const user = await User.create({
+        username,
+        email,
+        password: hashedPassword,
+        otp,
+        otpCreatedAt: new Date(),
+        isVerified: false,
+      });
 
-    // Send OTP email
-    await sendOTPEmail(email, otp);
-
-    res.status(201).json({
-      message: 'User created. Please verify your email with the OTP sent.',
-      userId: user._id,
-    });
+      res.status(201).json({
+        message: 'User created. Please verify your email with the OTP sent.',
+        userId: user._id,
+      });
+    } catch (createErr: any) {
+      // If user creation fails due to duplicate key (race condition), inform client
+      console.error('Signup - failed to create user after email sent:', createErr);
+      if (createErr.code === 11000) {
+        res.status(400).json({ error: 'User already exists' });
+      } else {
+        res.status(500).json({ error: 'Failed to create user' });
+      }
+    }
   } catch (error: any) {
     console.error('Signup error:', error);
     res.status(500).json({ error: 'Failed to create user' });

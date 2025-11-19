@@ -1,7 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { joinQueue, leaveQueue } from '../../services/matchmaking.service';
 import User from '../../models/User.model';
-import Problem from '../../models/Problem.model';
 import Match from '../../models/Match.model';
 import { generateAndSaveProblem } from '../../services/problemGeneration.service';
 import env from '../../config/env';

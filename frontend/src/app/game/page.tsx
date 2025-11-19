@@ -3,17 +3,21 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { Trophy, Swords, Crown, Zap, Users, Target } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
+import { game } from '@/lib/api';
+import { ARENAS, getArenaByTrophies } from '@/constants/arenas';
+import Leaderboard from '@/components/game/Leaderboard';
 import toast from 'react-hot-toast';
 
-type GameState = 'idle' | 'matchmaking' | 'betting' | 'in_game';
+type GameState = 'lobby' | 'matchmaking' | 'in_game';
 
 export default function GamePage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const { emit, on, off, connected } = useSocket();
-  const [gameState, setGameState] = useState<GameState>('idle');
+  const [gameState, setGameState] = useState<GameState>('lobby');
   const [betAmount, setBetAmount] = useState(0);
   const [problem, setProblem] = useState<any>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
@@ -30,7 +34,6 @@ export default function GamePage() {
     }
 
     // Socket event listeners
-    on('matchmaking_status', handleMatchmakingStatus);
     on('match_found', handleMatchFound);
     on('game_start', handleGameStart);
     on('submission_result', handleSubmissionResult);
@@ -41,7 +44,6 @@ export default function GamePage() {
     on('error', handleError);
 
     return () => {
-      off('matchmaking_status');
       off('match_found');
       off('game_start');
       off('submission_result');
@@ -68,10 +70,6 @@ export default function GamePage() {
       };
     }
   }, [gameState, matchId]);
-
-  function handleMatchmakingStatus(data: any) {
-    toast.success(data.message);
-  }
 
   function handleMatchFound(data: any) {
     setOpponent(data.opponent);
@@ -111,7 +109,7 @@ export default function GamePage() {
     }
 
     setTimeout(() => {
-      setGameState('idle');
+      setGameState('lobby');
       setMatchId(null);
       setProblem(null);
       setOpponent(null);
@@ -128,7 +126,7 @@ export default function GamePage() {
 
   function handleDisqualified(data: any) {
     toast.error('❌ You have been disqualified for tab switching!');
-    setGameState('idle');
+    setGameState('lobby');
   }
 
   function handleError(data: any) {
@@ -147,7 +145,7 @@ export default function GamePage() {
 
   function cancelMatchmaking() {
     emit('leave_matchmaking');
-    setGameState('idle');
+    setGameState('lobby');
     toast('Matchmaking cancelled');
   }
 
@@ -171,54 +169,239 @@ export default function GamePage() {
 
   if (loading || !user) {
     return (
-      <div className="container mx-auto px-4 py-20 text-center">
-        <div className="text-xl">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full"
+        />
       </div>
     );
   }
 
-  // Idle State - Choose bet and start
-  if (gameState === 'idle') {
+  const currentArena = getArenaByTrophies(user.trophies);
+
+  // Game Lobby - Main game page
+  if (gameState === 'lobby') {
     return (
-      <div className="container mx-auto px-4 py-20">
-        <div className="max-w-4xl mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+        <div className="container mx-auto px-4 py-8">
+          {/* Animated Background Elements */}
+          <div className="fixed inset-0 overflow-hidden pointer-events-none">
+            {[...Array(20)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-2 h-2 bg-primary-400 rounded-full opacity-20"
+                animate={{
+                  x: [0, 100, 0],
+                  y: [0, -100, 0],
+                  scale: [1, 1.5, 1],
+                }}
+                transition={{
+                  duration: 3 + i * 0.2,
+                  repeat: Infinity,
+                  delay: i * 0.1,
+                }}
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="card text-center"
+            className="text-center mb-12 relative z-10"
           >
-            <h1 className="text-4xl font-bold mb-4">Ready to Battle?</h1>
-            <p className="text-gray-400 mb-8">
-              You'll be matched with an opponent of similar skill level
-            </p>
-
-            <div className="mb-8">
-              <h3 className="text-xl font-bold mb-4">Optional: Place a Bet 💰</h3>
-              <div className="flex justify-center space-x-4">
-                {[0, 1, 5, 10, 20].map((amount) => (
-                  <button
-                    key={amount}
-                    onClick={() => setBetAmount(amount)}
-                    className={`px-6 py-3 rounded-lg font-bold transition ${
-                      betAmount === amount
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-gray-700 hover:bg-gray-600'
-                    }`}
-                  >
-                    {amount === 0 ? 'No Bet' : `$${amount}`}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              onClick={startMatchmaking}
-              disabled={!connected}
-              className="btn btn-primary text-xl px-12 py-4"
+            <motion.h1 
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 100 }}
+              className="text-7xl font-bold mb-6 bg-gradient-to-r from-red-400 via-yellow-400 to-purple-400 bg-clip-text text-transparent drop-shadow-2xl"
             >
-              {connected ? 'Find Match' : 'Connecting...'}
-            </button>
+              ⚔️ BATTLE ARENA ⚔️
+            </motion.h1>
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="text-2xl text-transparent bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text font-semibold"
+            >
+              🔥 Prove your coding skills in epic 1v1 battles 🔥
+            </motion.p>
           </motion.div>
+
+          <div className="grid lg:grid-cols-3 gap-8 relative z-10">
+            {/* Main Battle Section */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="lg:col-span-2 space-y-8"
+            >
+              {/* Current Arena */}
+              <motion.div 
+                whileHover={{ scale: 1.02, boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)" }}
+                className="card bg-gradient-to-br from-gray-800 via-gray-900 to-black border-2 shadow-2xl" 
+                style={{ borderColor: currentArena.color, boxShadow: `0 0 30px ${currentArena.color}40` }}
+              >
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center space-x-6">
+                    <motion.div 
+                      animate={{ rotate: [0, 10, -10, 0] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="text-8xl"
+                    >
+                      {currentArena.icon}
+                    </motion.div>
+                    <div>
+                      <h2 className="text-4xl font-bold mb-2" style={{ color: currentArena.color }}>
+                        {currentArena.name} Arena
+                      </h2>
+                      <p className="text-gray-400 text-lg">{currentArena.description}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <motion.div 
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="text-4xl font-bold text-yellow-400 mb-2"
+                    >
+                      {user.trophies} 🏆
+                    </motion.div>
+                    <div className="text-sm text-gray-400">
+                      {currentArena.maxTrophies - user.trophies} to next arena
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mb-8">
+                  <div className="bg-gray-700 rounded-full h-4 overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ 
+                        width: `${((user.trophies - currentArena.minTrophies) / (currentArena.maxTrophies - currentArena.minTrophies)) * 100}%` 
+                      }}
+                      transition={{ duration: 1.5, ease: "easeOut" }}
+                      className="h-4 rounded-full bg-gradient-to-r from-primary-500 via-yellow-500 to-purple-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Betting Options */}
+                <div className="mb-8">
+                  <h3 className="text-2xl font-bold mb-6 flex items-center">
+                    <Target className="w-6 h-6 mr-3" />
+                    Optional Betting 💰
+                  </h3>
+                  <div className="grid grid-cols-5 gap-3">
+                    {[0, 1, 5, 10, 20].map((amount) => (
+                      <motion.button
+                        key={amount}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setBetAmount(amount)}
+                        className={`p-4 rounded-xl font-bold text-lg transition-all ${
+                          betAmount === amount
+                            ? 'bg-gradient-to-r from-primary-500 to-purple-500 text-white shadow-lg'
+                            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        }`}
+                      >
+                        {amount === 0 ? 'Free' : `$${amount}`}
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Start Battle Button */}
+                <motion.button
+                  whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(239, 68, 68, 0.4)" }}
+                  whileTap={{ scale: 0.95 }}
+                  animate={{ 
+                    boxShadow: ["0 0 20px rgba(239, 68, 68, 0.3)", "0 0 40px rgba(239, 68, 68, 0.6)", "0 0 20px rgba(239, 68, 68, 0.3)"],
+                  }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  onClick={startMatchmaking}
+                  disabled={!connected}
+                  className="w-full bg-gradient-to-r from-red-500 via-orange-500 to-red-600 hover:from-red-600 hover:to-orange-600 text-white font-bold py-8 px-8 rounded-2xl text-3xl flex items-center justify-center space-x-4 transition-all duration-300 shadow-2xl border-2 border-red-400"
+                >
+                  <Swords className="w-10 h-10" />
+                  <span>{connected ? 'START BATTLE' : 'CONNECTING...'}</span>
+                  <Swords className="w-10 h-10" />
+                </motion.button>
+              </motion.div>
+
+              {/* Arena Progression */}
+              <motion.div 
+                whileHover={{ y: -5 }}
+                className="card bg-gradient-to-br from-purple-900/20 to-blue-900/20 border border-purple-500/30"
+              >
+                <h3 className="text-3xl font-bold mb-8 flex items-center">
+                  <Crown className="w-8 h-8 mr-3 text-yellow-400" />
+                  Arena Progression
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                  {ARENAS.map((arena, index) => {
+                    const isUnlocked = user.trophies >= arena.minTrophies;
+                    const isCurrent = currentArena.id === arena.id;
+                    
+                    return (
+                      <motion.div
+                        key={arena.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        whileHover={{ scale: 1.1, y: -10 }}
+                        className={`p-6 rounded-xl text-center transition-all ${
+                          isCurrent
+                            ? 'bg-gradient-to-b from-yellow-500/30 to-orange-500/30 border-2 border-yellow-400 shadow-lg'
+                            : isUnlocked
+                            ? 'bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600'
+                            : 'bg-gray-800/30 opacity-50 border border-gray-700'
+                        }`}
+                      >
+                        <motion.div 
+                          animate={isCurrent ? { rotate: [0, 10, -10, 0] } : {}}
+                          transition={{ duration: 2, repeat: Infinity }}
+                          className="text-5xl mb-3"
+                        >
+                          {arena.icon}
+                        </motion.div>
+                        <div className="font-bold text-lg mb-1" style={{ color: isUnlocked ? arena.color : '#666' }}>
+                          {arena.name}
+                        </div>
+                        <div className="text-sm text-gray-400 mb-2">
+                          {arena.minTrophies}+ 🏆
+                        </div>
+                        {isCurrent && (
+                          <motion.div 
+                            animate={{ opacity: [0.5, 1, 0.5] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                            className="text-xs text-yellow-400 font-bold bg-yellow-400/20 px-2 py-1 rounded-full"
+                          >
+                            CURRENT
+                          </motion.div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            </motion.div>
+
+            {/* Leaderboard */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <Leaderboard />
+            </motion.div>
+          </div>
         </div>
       </div>
     );
@@ -227,26 +410,39 @@ export default function GamePage() {
   // Matchmaking State
   if (gameState === 'matchmaking') {
     return (
-      <div className="container mx-auto px-4 py-20 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="card text-center max-w-md"
+          className="card text-center max-w-lg bg-gradient-to-br from-gray-800 to-gray-900 border border-primary-500/50 shadow-2xl"
         >
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-            className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full mx-auto mb-6"
+            className="w-24 h-24 border-4 border-primary-500 border-t-transparent rounded-full mx-auto mb-8"
           />
-          <h2 className="text-2xl font-bold mb-4">Finding Opponent...</h2>
-          <p className="text-gray-400 mb-6">
-            {betAmount > 0
-              ? `Looking for opponents with $${betAmount} bet`
-              : 'Matching based on your trophies'}
+          <h2 className="text-4xl font-bold mb-6 bg-gradient-to-r from-primary-400 to-purple-400 bg-clip-text text-transparent">
+            Finding Opponent...
+          </h2>
+          <div className="flex items-center justify-center space-x-3 mb-6">
+            <Users className="w-6 h-6 text-gray-400" />
+            <span className="text-xl text-gray-300">
+              {betAmount > 0
+                ? `$${betAmount} Betting Match`
+                : `${currentArena.name} Arena`}
+            </span>
+          </div>
+          <p className="text-gray-400 mb-8 text-lg">
+            Matching with players around {user.trophies} trophies
           </p>
-          <button onClick={cancelMatchmaking} className="btn btn-secondary">
-            Cancel
-          </button>
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={cancelMatchmaking} 
+            className="btn btn-secondary w-full text-lg py-3"
+          >
+            Cancel Matchmaking
+          </motion.button>
         </motion.div>
       </div>
     );
@@ -255,82 +451,145 @@ export default function GamePage() {
   // In Game State
   if (gameState === 'in_game' && problem) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        {/* Game Header */}
-        <div className="mb-6">
-          <div className="card">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-8">
-                <div className="text-center">
-                  <span className="text-sm text-gray-400">You</span>
-                  <div className="font-bold">{user.username}</div>
+      <div className="min-h-screen bg-gradient-to-br from-red-900/20 via-gray-900 to-orange-900/20">
+        <div className="container mx-auto px-4 py-8">
+          {/* Game Header */}
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8"
+          >
+            <div className="card bg-gradient-to-r from-red-900/50 to-orange-900/50 border border-red-500/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-12">
+                  <motion.div 
+                    whileHover={{ scale: 1.1 }}
+                    className="text-center p-4 bg-blue-500/20 rounded-xl border border-blue-400"
+                  >
+                    <span className="text-sm text-gray-400 block mb-1">You</span>
+                    <div className="font-bold text-blue-400 text-xl">{user.username}</div>
+                    <div className="text-sm text-gray-400">{user.trophies} 🏆</div>
+                  </motion.div>
+                  <motion.div 
+                    animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.2, 1] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                    className="text-6xl"
+                  >
+                    ⚔️
+                  </motion.div>
+                  <motion.div 
+                    whileHover={{ scale: 1.1 }}
+                    className="text-center p-4 bg-red-500/20 rounded-xl border border-red-400"
+                  >
+                    <span className="text-sm text-gray-400 block mb-1">Opponent</span>
+                    <div className="font-bold text-red-400 text-xl">{opponent?.username}</div>
+                    <div className="text-sm text-gray-400">{opponent?.trophies} 🏆</div>
+                  </motion.div>
                 </div>
-                <div className="text-2xl">⚔️</div>
-                <div className="text-center">
-                  <span className="text-sm text-gray-400">Opponent</span>
-                  <div className="font-bold">{opponent?.username}</div>
+                <motion.div 
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                  className="text-center"
+                >
+                  <div className="text-5xl font-bold text-yellow-400 mb-2">
+                    {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                  </div>
+                  <div className="text-sm text-gray-400">Time Left</div>
+                </motion.div>
+                <div className="flex space-x-3">
+                  <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={requestHint} 
+                    className="btn btn-secondary btn-sm text-lg px-6 py-3"
+                  >
+                    💡 Hint
+                  </motion.button>
+                  <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={submitCode} 
+                    className="btn btn-success btn-sm text-lg px-6 py-3"
+                  >
+                    🚀 Submit
+                  </motion.button>
                 </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary-400">{Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</div>
-                <div className="text-sm text-gray-400">Time Left</div>
-              </div>
-              <div className="flex space-x-2">
-                <button onClick={requestHint} className="btn btn-secondary btn-sm">
-                  Hint
-                </button>
-                <button onClick={submitCode} className="btn btn-success btn-sm">
-                  Submit
-                </button>
               </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
 
-        {/* Game Area */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Problem Panel */}
-          <div className="card">
-            <h2 className="text-xl font-bold mb-4">{problem.title}</h2>
-            <div className="prose prose-invert max-w-none">
-              <p className="text-gray-300">{problem.description}</p>
-            </div>
-            
-            {testResults.length > 0 && (
-              <div className="mt-6">
-                <h3 className="font-bold mb-2">Test Results:</h3>
-                <div className="space-y-2">
-                  {testResults.map((result: any, index: number) => (
-                    <div key={index} className={`p-2 rounded ${result.passed ? 'bg-green-900' : 'bg-red-900'}`}>
-                      Test {result.testCase}: {result.passed ? '✅ Passed' : '❌ Failed'}
-                    </div>
-                  ))}
-                </div>
+          {/* Game Area */}
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Problem Panel */}
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="card bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-500/30"
+            >
+              <h2 className="text-3xl font-bold mb-6 text-primary-400">{problem.title}</h2>
+              <div className="prose prose-invert max-w-none mb-8">
+                <p className="text-gray-300 text-lg leading-relaxed">{problem.description}</p>
               </div>
-            )}
-          </div>
+              
+              {testResults.length > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-8"
+                >
+                  <h3 className="font-bold mb-4 text-xl">Test Results:</h3>
+                  <div className="space-y-3">
+                    {testResults.map((result: any, index: number) => (
+                      <motion.div 
+                        key={index}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className={`p-4 rounded-lg border-l-4 ${
+                          result.passed 
+                            ? 'bg-green-900/30 border-green-500 border border-green-500/50' 
+                            : 'bg-red-900/30 border-red-500 border border-red-500/50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-lg">Test Case {index + 1}</span>
+                          <span className={`font-bold text-xl ${result.passed ? 'text-green-400' : 'text-red-400'}`}>
+                            {result.passed ? '✅ PASSED' : '❌ FAILED'}
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
 
-          {/* Code Editor */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold">Code Editor</h3>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="bg-gray-700 border border-gray-600 rounded px-3 py-1"
-              >
-                <option value="javascript">JavaScript</option>
-                <option value="python">Python</option>
-                <option value="java">Java</option>
-                <option value="cpp">C++</option>
-              </select>
-            </div>
-            <textarea
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className="w-full h-96 bg-gray-900 border border-gray-600 rounded p-4 font-mono text-sm"
-              placeholder="Write your solution here..."
-            />
+            {/* Code Editor */}
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="card bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-2xl">Code Editor</h3>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-lg"
+                >
+                  <option value="javascript">JavaScript</option>
+                  <option value="python">Python</option>
+                  <option value="java">Java</option>
+                  <option value="cpp">C++</option>
+                </select>
+              </div>
+              <textarea
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="w-full h-96 bg-gray-900 border border-gray-600 rounded-lg p-6 font-mono text-lg resize-none focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                placeholder="// Write your solution here..."
+              />
+            </motion.div>
           </div>
         </div>
       </div>
