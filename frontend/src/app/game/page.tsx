@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Trophy, Swords, Crown, Zap, Users, Target } from 'lucide-react';
@@ -55,6 +55,19 @@ export default function GamePage() {
     };
   }, [user, loading]);
 
+  // Timer interval ref to control countdown
+  const timerRef = useRef<number | null>(null);
+
+  // Ensure timer is cleared on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
+
   // Tab switch detection
   useEffect(() => {
     if (gameState === 'in_game' && matchId) {
@@ -82,6 +95,26 @@ export default function GamePage() {
 
   function handleGameStart(data: any) {
     toast.success('Battle started! Code fast!');
+
+    // Start countdown if not already started
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    timerRef.current = window.setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          // stop at zero
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000) as unknown as number;
   }
 
   function handleSubmissionResult(data: any) {
@@ -115,6 +148,10 @@ export default function GamePage() {
       setOpponent(null);
       setCode('');
       setTestResults([]);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }, 3000);
   }
 
@@ -127,6 +164,10 @@ export default function GamePage() {
   function handleDisqualified(data: any) {
     toast.error('❌ You have been disqualified for tab switching!');
     setGameState('lobby');
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
   }
 
   function handleError(data: any) {
