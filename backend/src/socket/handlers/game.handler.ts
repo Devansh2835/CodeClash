@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import Match from '../../models/Match.model';
+import User from '../../models/User.model';
 import { executeTestCases, LANGUAGE_IDS } from '../../services/judge0.service';
 import { updateMatchStats } from '../../services/trophy.service';
 import { checkAndAwardBadges } from '../../services/badge.service';
@@ -145,13 +146,34 @@ export function registerGameHandlers(io: Server, socket: Socket): void {
         const winnerId = match.winner.toString();
         await updateMatchStats(winnerId, userId);
 
-        // Notify both players
+        // Award badges if any and emit user-level updates
+        const newBadges = await checkAndAwardBadges(winnerId);
+
+        // Fetch updated user docs to emit accurate payloads
+        const winnerUser = await User.findById(winnerId).select('trophies badges username _id');
+        const loserUser = await User.findById(userId).select('trophies badges username _id');
+
+        // Notify both players in the match room
         const roomId = `match:${matchId}`;
         io.to(roomId).emit('game_end', {
           reason: 'disqualification',
           winner: winnerId,
           disqualifiedPlayer: userId,
         });
+
+        // Emit per-user updates
+        if (winnerUser) {
+          io.to(`user:${winnerId}`).emit('trophies:updated', { userId: winnerId, trophies: winnerUser.trophies });
+          if (newBadges && newBadges.length > 0) {
+            io.to(`user:${winnerId}`).emit('badges:awarded', { userId: winnerId, badges: newBadges, badgesFull: winnerUser.badges });
+            io.to(`user:${winnerId}`).emit('user:updated', { user: winnerUser });
+          }
+        }
+
+        if (loserUser) {
+          io.to(`user:${userId}`).emit('trophies:updated', { userId: userId, trophies: loserUser.trophies });
+          io.to(`user:${userId}`).emit('user:updated', { user: loserUser });
+        }
 
         tabSwitchWarnings.delete(userId);
       }
@@ -212,15 +234,33 @@ async function checkForWinner(io: Server, match: any): Promise<void> {
 
     await updateMatchStats(winnerId.toString(), loserId);
 
-    // Check badges
-    await checkAndAwardBadges(winnerId.toString());
+    // Check badges and capture newly awarded badges
+    const newBadges = await checkAndAwardBadges(winnerId.toString());
 
-    // Notify players
+    // Fetch updated users and emit user-level events so clients can update in real-time
+    const winnerUser = await User.findById(winnerId).select('trophies badges username _id');
+    const loserUser = await User.findById(loserId).select('trophies badges username _id');
+
+    // Notify players in match room
     const roomId = `match:${match._id}`;
     io.to(roomId).emit('game_end', {
       winner: winnerId,
       player1Runtime: p1Runtime,
       player2Runtime: p2Runtime,
     });
+
+    // Emit per-user updates
+    if (winnerUser) {
+      io.to(`user:${winnerId}`).emit('trophies:updated', { userId: winnerId, trophies: winnerUser.trophies });
+      if (newBadges && newBadges.length > 0) {
+        io.to(`user:${winnerId}`).emit('badges:awarded', { userId: winnerId, badges: newBadges, badgesFull: winnerUser.badges });
+        io.to(`user:${winnerId}`).emit('user:updated', { user: winnerUser });
+      }
+    }
+
+    if (loserUser) {
+      io.to(`user:${loserId}`).emit('trophies:updated', { userId: loserId, trophies: loserUser.trophies });
+      io.to(`user:${loserId}`).emit('user:updated', { user: loserUser });
+    }
   }
 }

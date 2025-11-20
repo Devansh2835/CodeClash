@@ -17,6 +17,8 @@ export default function CodeEditor({ value, onChange, language, onLanguageChange
         <select
           value={language}
           onChange={(e) => onLanguageChange(e.target.value)}
+          title="Language"
+          aria-label="Language"
           className="bg-gray-700 border border-gray-600 rounded px-3 py-1"
         >
           <option value="javascript">JavaScript</option>
