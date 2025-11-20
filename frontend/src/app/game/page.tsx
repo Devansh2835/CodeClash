@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Trophy, Swords, Crown, Zap, Users, Target } from 'lucide-react';
@@ -55,6 +55,19 @@ export default function GamePage() {
     };
   }, [user, loading]);
 
+  // Timer interval ref to control countdown
+  const timerRef = useRef<number | null>(null);
+
+  // Ensure timer is cleared on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
+
   // Tab switch detection
   useEffect(() => {
     if (gameState === 'in_game' && matchId) {
@@ -82,6 +95,26 @@ export default function GamePage() {
 
   function handleGameStart(data: any) {
     toast.success('Battle started! Code fast!');
+
+    // Start countdown if not already started
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    timerRef.current = window.setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          // stop at zero
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000) as unknown as number;
   }
 
   function handleSubmissionResult(data: any) {
@@ -115,6 +148,10 @@ export default function GamePage() {
       setOpponent(null);
       setCode('');
       setTestResults([]);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }, 3000);
   }
 
@@ -127,6 +164,10 @@ export default function GamePage() {
   function handleDisqualified(data: any) {
     toast.error('❌ You have been disqualified for tab switching!');
     setGameState('lobby');
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
   }
 
   function handleError(data: any) {
@@ -459,15 +500,15 @@ export default function GamePage() {
             animate={{ opacity: 1, y: 0 }}
             className="mb-8"
           >
-            <div className="card bg-gradient-to-r from-red-900/50 to-orange-900/50 border border-red-500/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-12">
+              <div className="card bg-gradient-to-r from-red-900/50 to-orange-900/50 border border-red-500/50">
+              <div className="flex flex-col md:flex-row items-center md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row items-center md:space-x-12 space-y-4 md:space-y-0 w-full">
                   <motion.div 
                     whileHover={{ scale: 1.1 }}
                     className="text-center p-4 bg-blue-500/20 rounded-xl border border-blue-400"
                   >
                     <span className="text-sm text-gray-400 block mb-1">You</span>
-                    <div className="font-bold text-blue-400 text-xl">{user.username}</div>
+                    <div className="font-bold text-blue-400 text-lg md:text-xl">{user.username}</div>
                     <div className="text-sm text-gray-400">{user.trophies} 🏆</div>
                   </motion.div>
                   <motion.div 
@@ -482,26 +523,26 @@ export default function GamePage() {
                     className="text-center p-4 bg-red-500/20 rounded-xl border border-red-400"
                   >
                     <span className="text-sm text-gray-400 block mb-1">Opponent</span>
-                    <div className="font-bold text-red-400 text-xl">{opponent?.username}</div>
+                    <div className="font-bold text-red-400 text-lg md:text-xl">{opponent?.username}</div>
                     <div className="text-sm text-gray-400">{opponent?.trophies} 🏆</div>
                   </motion.div>
                 </div>
                 <motion.div 
-                  animate={{ scale: [1, 1.1, 1] }}
+                  animate={{ scale: [1, 1.05, 1] }}
                   transition={{ duration: 1, repeat: Infinity }}
-                  className="text-center"
+                  className="text-center w-full md:w-auto"
                 >
-                  <div className="text-5xl font-bold text-yellow-400 mb-2">
+                  <div className="text-3xl md:text-5xl font-bold text-yellow-400 mb-2">
                     {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
                   </div>
                   <div className="text-sm text-gray-400">Time Left</div>
                 </motion.div>
-                <div className="flex space-x-3">
+                <div className="flex flex-col md:flex-row md:space-x-3 w-full md:w-auto">
                   <motion.button 
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={requestHint} 
-                    className="btn btn-secondary btn-sm text-lg px-6 py-3"
+                    className="btn btn-secondary btn-sm text-lg px-6 py-3 mb-2 md:mb-0"
                   >
                     💡 Hint
                   </motion.button>

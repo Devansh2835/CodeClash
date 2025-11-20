@@ -2,15 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Swords, Trophy, LogOut, LayoutDashboard, Zap } from 'lucide-react';
+import { Swords, Trophy, LogOut, LayoutDashboard, Zap, Menu, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useState } from 'react';
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout, loading } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -41,15 +43,15 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* Navigation Links */}
-          <div className="flex items-center space-x-8">
+          {/* Navigation Links (desktop) */}
+          <div className="hidden md:flex items-center space-x-8">
             {user ? (
               <>
                 <Link
                   href="/dashboard"
                   className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
-                    pathname === '/dashboard' 
-                      ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-400 border border-blue-500/30' 
+                    pathname === '/dashboard'
+                      ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-400 border border-blue-500/30'
                       : 'text-gray-300 hover:text-blue-400 hover:bg-blue-500/10'
                   }`}
                 >
@@ -59,15 +61,15 @@ export default function Navbar() {
                 <Link
                   href="/game"
                   className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
-                    pathname === '/game' 
-                      ? 'bg-gradient-to-r from-red-500/20 to-orange-500/20 text-red-400 border border-red-500/30' 
+                    pathname === '/game'
+                      ? 'bg-gradient-to-r from-red-500/20 to-orange-500/20 text-red-400 border border-red-500/30'
                       : 'text-gray-300 hover:text-red-400 hover:bg-red-500/10'
                   }`}
                 >
                   <Zap className="w-5 h-5" />
                   <span>Battle</span>
                 </Link>
-                
+
                 {/* User Profile */}
                 <div className="flex items-center space-x-4 bg-gradient-to-r from-gray-800/50 to-gray-700/50 px-6 py-3 rounded-2xl border border-gray-600/50">
                   <div className="text-right">
@@ -107,6 +109,43 @@ export default function Navbar() {
               <div className="text-gray-400">Loading...</div>
             )}
           </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden flex items-center">
+            <button
+              onClick={() => setMenuOpen((s) => !s)}
+              className="p-2 rounded-md text-gray-300 hover:text-white hover:bg-gray-800/40"
+              aria-label="Toggle menu"
+            >
+              {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile menu panel */}
+      <div className={`${menuOpen ? 'block' : 'hidden'} md:hidden bg-gray-900/95 border-b border-gray-800`}>
+        <div className="px-4 py-4 space-y-3">
+          {user ? (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-white">{user.username}</div>
+                  <div className="text-yellow-400 text-sm flex items-center"><Trophy className="w-4 h-4 mr-1"/>{user.trophies}</div>
+                </div>
+                <motion.button whileTap={{ scale: 0.95 }} onClick={handleLogout} className="text-gray-400 p-2 rounded-md"> <LogOut className="w-5 h-5"/> </motion.button>
+              </div>
+              <Link href="/dashboard" className="block px-3 py-2 rounded-md text-gray-300 hover:bg-gray-800/40">Dashboard</Link>
+              <Link href="/game" className="block px-3 py-2 rounded-md text-gray-300 hover:bg-gray-800/40">Battle</Link>
+            </>
+          ) : !loading ? (
+            <>
+              <Link href="/login" className="block px-3 py-2 rounded-md text-gray-300 hover:bg-gray-800/40">Login</Link>
+              <Link href="/signup" className="block px-3 py-2 rounded-md bg-gradient-to-r from-cyan-500 to-purple-600 text-white text-center">Sign Up</Link>
+            </>
+          ) : (
+            <div className="text-gray-400">Loading...</div>
+          )}
         </div>
       </div>
     </nav>
