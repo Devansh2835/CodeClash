@@ -83,8 +83,11 @@ export default function Modal({
                   <button
                     onClick={onClose}
                     className="text-gray-400 hover:text-white transition-colors"
+                    aria-label="Close dialog"
+                    title="Close dialog"
                   >
                     <X className="w-6 h-6" />
+                    <span className="sr-only">Close</span>
                   </button>
                 </div>
               )}

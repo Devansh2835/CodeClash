@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Trophy, Swords, Crown, Zap, Users, Target } from 'lucide-react';
@@ -10,6 +10,7 @@ import { game } from '@/lib/api';
 import { ARENAS, getArenaByTrophies } from '@/constants/arenas';
 import Leaderboard from '@/components/game/Leaderboard';
 import toast from 'react-hot-toast';
+import GameTimer from '@/components/game/GameTimer';
 
 type GameState = 'lobby' | 'matchmaking' | 'in_game';
 
@@ -55,18 +56,7 @@ export default function GamePage() {
     };
   }, [user, loading]);
 
-  // Timer interval ref to control countdown
-  const timerRef = useRef<number | null>(null);
-
-  // Ensure timer is cleared on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, []);
+  // Timer is handled by the GameTimer component via the `initialTime` prop.
 
   // Tab switch detection
   useEffect(() => {
@@ -95,26 +85,6 @@ export default function GamePage() {
 
   function handleGameStart(data: any) {
     toast.success('Battle started! Code fast!');
-
-    // Start countdown if not already started
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
-    timerRef.current = window.setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          // stop at zero
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000) as unknown as number;
   }
 
   function handleSubmissionResult(data: any) {
@@ -135,6 +105,8 @@ export default function GamePage() {
 
   function handleGameEnd(data: any) {
     const won = data.winner === user?.id;
+    // stop countdown immediately when game ends
+    setTimeLeft(0);
     if (won) {
       toast.success('🏆 Victory! +100 trophies');
     } else {
@@ -148,10 +120,6 @@ export default function GamePage() {
       setOpponent(null);
       setCode('');
       setTestResults([]);
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
     }, 3000);
   }
 
@@ -163,11 +131,9 @@ export default function GamePage() {
 
   function handleDisqualified(data: any) {
     toast.error('❌ You have been disqualified for tab switching!');
+    // stop the timer and return to lobby
+    setTimeLeft(0);
     setGameState('lobby');
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
   }
 
   function handleError(data: any) {
@@ -532,10 +498,14 @@ export default function GamePage() {
                   transition={{ duration: 1, repeat: Infinity }}
                   className="text-center w-full md:w-auto"
                 >
+<<<<<<< HEAD
                   <div className="text-3xl md:text-5xl font-bold text-yellow-400 mb-2">
                     {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
                   </div>
                   <div className="text-sm text-gray-400">Time Left</div>
+=======
+                  <GameTimer initialTime={timeLeft} />
+>>>>>>> f943010 (Fix: real-time trophies, badges and match timer; add socket listeners)
                 </motion.div>
                 <div className="flex flex-col md:flex-row md:space-x-3 w-full md:w-auto">
                   <motion.button 
@@ -614,6 +584,9 @@ export default function GamePage() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-bold text-2xl">Code Editor</h3>
                 <select
+                  id="language-select"
+                  aria-label="Select programming language"
+                  title="Select programming language"
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
                   className="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-lg"

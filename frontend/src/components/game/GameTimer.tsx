@@ -1,23 +1,52 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface GameTimerProps {
-  initialTime: number;
+  initialTime: number; // seconds
 }
 
 export default function GameTimer({ initialTime }: GameTimerProps) {
   const [timeLeft, setTimeLeft] = useState(initialTime);
+  const intervalRef = useRef<number | null>(null);
 
+  // update local state whenever initialTime prop changes
   useEffect(() => {
-    if (timeLeft <= 0) return;
+    setTimeLeft(initialTime);
+  }, [initialTime]);
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => Math.max(0, prev - 1));
+  // start/restart interval whenever initialTime changes
+  useEffect(() => {
+    // clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    // don't start if time is already zero or negative
+    if (initialTime <= 0) return;
+
+    intervalRef.current = window.setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          // stop the interval when reaching zero
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [timeLeft]);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [initialTime]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
