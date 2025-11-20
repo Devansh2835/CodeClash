@@ -3,217 +3,161 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Mail, User, Lock } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useMetaMask } from '@/hooks/useMetaMask';
-import toast from 'react-hot-toast';
-import { auth } from '@/lib/api';
+import { Swords, ArrowLeft, Shield } from 'lucide-react';
+import SignupForm from '@/components/auth/SignupForm';
+import OTPVerification from '@/components/auth/OTPVerification';
+import Link from 'next/link';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signup } = useAuth();
-  const { connect: connectMetaMask, connected: metamaskConnected } = useMetaMask();
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
   const [step, setStep] = useState<'form' | 'otp'>('form');
-  const [otp, setOtp] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await signup(formData.username, formData.email, formData.password);
-      toast.success('Account created! Check your email for OTP.');
-      setStep('otp');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Signup failed');
-    } finally {
-      setLoading(false);
-    }
+  const handleSignupSuccess = (userEmail: string) => {
+    setEmail(userEmail);
+    setStep('otp');
   };
 
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      await auth.verifyOTP({ email: formData.email, otp });
-      toast.success('Email verified! Redirecting...');
-      router.push('/dashboard');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Invalid OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendOTP = async () => {
-    try {
-      await auth.resendOTP({ email: formData.email });
-      toast.success('OTP resent to your email');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to resend OTP');
-    }
+  const handleOTPSuccess = () => {
+    router.push('/dashboard');
   };
 
   if (step === 'otp') {
     return (
-      <div className="container mx-auto px-4 py-20 max-w-md">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center px-4">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md relative z-10"
         >
-          <h1 className="text-3xl font-bold text-center mb-6">Verify Email</h1>
-          <p className="text-center text-gray-400 mb-6">
-            We sent a 6-digit code to {formData.email}
-          </p>
-          <form onSubmit={handleVerifyOTP}>
-            <div className="mb-6">
-              <input
-                type="text"
-                placeholder="Enter OTP"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                maxLength={6}
-                className="input text-center text-2xl tracking-widest"
-                required
-              />
+          <motion.div
+            className="bg-gray-800/80 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-gray-700/50"
+          >
+            <div className="text-center mb-8">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full mb-4"
+              >
+                <Shield className="w-8 h-8 text-white" />
+              </motion.div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
+                Verify Email
+              </h1>
+              <p className="text-gray-400">
+                Enter the code sent to your email
+              </p>
             </div>
-            <button
-              type="submit"
-              disabled={loading || otp.length !== 6}
-              className="btn btn-primary w-full mb-4"
-            >
-              {loading ? 'Verifying...' : 'Verify Email'}
-            </button>
-            <button
-              type="button"
-              onClick={handleResendOTP}
-              className="btn btn-secondary w-full"
-            >
-              Resend OTP
-            </button>
-          </form>
+            <OTPVerification email={email} onSuccess={handleOTPSuccess} />
+          </motion.div>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-20 max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center px-4">
+      {/* Animated Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        {[...Array(15)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 bg-purple-400 rounded-full opacity-30"
+            animate={{
+              x: [0, 100, 0],
+              y: [0, -100, 0],
+              scale: [1, 2, 1],
+            }}
+            transition={{
+              duration: 4 + i * 0.3,
+              repeat: Infinity,
+              delay: i * 0.2,
+            }}
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+          />
+        ))}
+      </div>
+
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="card"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md relative z-10"
       >
-        <h1 className="text-3xl font-bold text-center mb-6">Create Account</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="label">
-              <User className="w-4 h-4 inline mr-2" />
-              Username
-            </label>
-            <input
-              type="text"
-              placeholder="username"
-              value={formData.username}
-              onChange={(e) =>
-                setFormData({ ...formData, username: e.target.value })
-              }
-              className="input"
-              required
-              minLength={3}
-              maxLength={20}
-            />
-          </div>
-          <div>
-            <label className="label">
-              <Mail className="w-4 h-4 inline mr-2" />
-              Email
-            </label>
-            <input
-              type="email"
-              placeholder="your@email.com"
-              value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
-              className="input"
-              required
-            />
-          </div>
-          <div>
-            <label className="label">
-              <Lock className="w-4 h-4 inline mr-2" />
-              Password
-            </label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={formData.password}
-              onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
-              }
-              className="input"
-              required
-              minLength={6}
-            />
-          </div>
-          <div>
-            <label className="label">
-              <Lock className="w-4 h-4 inline mr-2" />
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={formData.confirmPassword}
-              onChange={(e) =>
-                setFormData({ ...formData, confirmPassword: e.target.value })
-              }
-              className="input"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn btn-primary w-full"
+        {/* Back Button */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="mb-6"
+        >
+          <Link
+            href="/"
+            className="inline-flex items-center text-gray-400 hover:text-purple-400 transition-colors"
           >
-            {loading ? 'Creating Account...' : 'Sign Up'}
-          </button>
-        </form>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Home
+          </Link>
+        </motion.div>
 
-        <div className="mt-6 p-4 bg-gray-700 rounded-lg">
-          <p className="text-sm text-gray-400 mb-3">
-            Optional: Connect MetaMask for betting
-          </p>
-          <button
-            onClick={connectMetaMask}
-            disabled={metamaskConnected}
-            className="btn btn-secondary w-full"
+        {/* Signup Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-gray-800/80 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-gray-700/50"
+        >
+          {/* Header */}
+          <div className="text-center mb-8">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+              className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full mb-4"
+            >
+              <Swords className="w-8 h-8 text-white" />
+            </motion.div>
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2"
+            >
+              Join the Battle
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="text-gray-400"
+            >
+              Create your account and start coding battles
+            </motion.p>
+          </div>
+
+          {/* Signup Form */}
+          <SignupForm onSuccess={handleSignupSuccess} />
+
+          {/* Footer */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="text-center mt-8 pt-6 border-t border-gray-700"
           >
-            {metamaskConnected ? '✓ MetaMask Connected' : 'Connect MetaMask'}
-          </button>
-        </div>
-
-        <p className="text-center mt-6 text-gray-400">
-          Already have an account?{' '}
-          <a href="/login" className="text-primary-400 hover:text-primary-300">
-            Login
-          </a>
-        </p>
+            <p className="text-gray-400">
+              Already have an account?{' '}
+              <Link
+                href="/login"
+                className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
+              >
+                Sign in here
+              </Link>
+            </p>
+          </motion.div>
+        </motion.div>
       </motion.div>
     </div>
   );

@@ -25,11 +25,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Redirect to login if unauthorized, but avoid redirect loops when already on auth pages
+      // Only redirect to login for protected routes, not for auth checks or public pages
       if (typeof window !== 'undefined') {
         const pathname = window.location.pathname || '';
-        const isAuthPage = ['/login', '/signup', '/verify-otp'].some((p) => pathname.startsWith(p));
-        if (!isAuthPage) {
+        const isPublicPage = ['/', '/login', '/signup', '/verify-otp'].some((p) => pathname === p);
+        const isAuthCheckRequest = error.config?.url?.includes('/auth/me');
+        const isLoginRequest = error.config?.url?.includes('/auth/login');
+        
+        if (!isPublicPage && !isAuthCheckRequest && !isLoginRequest) {
           window.location.href = '/login';
         }
       }
@@ -48,6 +51,10 @@ export const auth = {
     api.post('/auth/resend-otp', data),
   login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data),
+  forgotPassword: (data: { email: string }) =>
+    api.post('/auth/forgot-password', data),
+  resetPassword: (data: { email: string; otp: string; newPassword: string }) =>
+    api.post('/auth/reset-password', data),
   logout: () => api.post('/auth/logout'),
   getMe: () => api.get('/auth/me'),
 };

@@ -56,7 +56,7 @@ export async function getLeaderboard(req: AuthRequest, res: Response): Promise<v
   }
 }
 
-export async function getCommissionWallet(req: Request, res: Response): Promise<void> {
+export async function getCommissionWallet(_req: Request, res: Response): Promise<void> {
   try {
     const walletAddress = blockchainService.getCommissionWallet();
     res.json({ commissionWallet: walletAddress });

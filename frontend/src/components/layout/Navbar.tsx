@@ -92,12 +92,14 @@ export default function Navbar() {
               </>
             ) : !loading ? (
               <>
-                <Link
-                  href="/login"
-                  className="text-gray-300 hover:text-cyan-400 transition-colors font-medium px-4 py-2 rounded-lg hover:bg-cyan-500/10"
-                >
-                  Login
-                </Link>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Link
+                    href="/login"
+                    className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30 text-cyan-400 hover:text-cyan-300 transition-all duration-300 font-medium px-6 py-3 rounded-xl border border-cyan-500/30 hover:border-cyan-400/50 shadow-lg hover:shadow-cyan-500/25"
+                  >
+                    Login
+                  </Link>
+                </motion.div>
                 <Link
                   href="/signup"
                   className="bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl transition-all duration-300 font-bold shadow-lg hover:shadow-cyan-500/25"

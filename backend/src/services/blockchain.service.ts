@@ -142,7 +142,7 @@ export class BlockchainService {
    * @param callback - Callback function to handle events
    */
   onBetSettled(callback: (matchId: string, winner: string, loser: string, pot: string, winnerPayout: string, commission: string) => void) {
-    this.contract.on('BetSettled', (matchId, winner, loser, pot, winnerPayout, commission) => {
+    this.contract.on('BetSettled', (matchId: any, winner: any, loser: any, pot: any, winnerPayout: any, commission: any) => {
       callback(
         matchId.toString(),
         winner,

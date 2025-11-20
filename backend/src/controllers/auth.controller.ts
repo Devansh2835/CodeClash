@@ -164,6 +164,76 @@ export async function resendOTP(req: Request, res: Response): Promise<void> {
   }
 }
 
+export async function forgotPassword(req: Request, res: Response): Promise<void> {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      res.status(404).json({ error: 'Account not found with this email.' });
+      return;
+    }
+
+    if (!user.isVerified) {
+      res.status(403).json({ error: 'Please verify your email first' });
+      return;
+    }
+
+    // Generate OTP for password reset
+    const otp = generateOTP();
+    user.otp = otp;
+    user.otpCreatedAt = new Date();
+    await user.save();
+
+    // Send OTP email
+    await sendOTPEmail(email, otp);
+
+    res.json({ message: 'Password reset OTP sent to your email' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to send reset email' });
+  }
+}
+
+export async function resetPassword(req: Request, res: Response): Promise<void> {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (!user.otp || !user.otpCreatedAt) {
+      res.status(400).json({ error: 'No reset request found' });
+      return;
+    }
+
+    if (isOTPExpired(user.otpCreatedAt)) {
+      res.status(400).json({ error: 'Reset code expired' });
+      return;
+    }
+
+    if (user.otp !== otp) {
+      res.status(400).json({ error: 'Invalid reset code' });
+      return;
+    }
+
+    // Reset password
+    const hashedPassword = await hashPassword(newPassword);
+    user.password = hashedPassword;
+    user.otp = undefined;
+    user.otpCreatedAt = undefined;
+    await user.save();
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+}
+
 export async function login(req: Request, res: Response): Promise<void> {
   try {
     const { email, password } = req.body;
@@ -171,7 +241,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     // Find user
     const user = await User.findOne({ email });
     if (!user) {
-      res.status(401).json({ error: 'Invalid credentials' });
+      res.status(404).json({ error: 'Account not found with us. Please sign up first.' });
       return;
     }
 
@@ -183,7 +253,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     // Check password
     const isPasswordValid = await comparePassword(password, user.password);
     if (!isPasswordValid) {
-      res.status(401).json({ error: 'Invalid credentials' });
+      res.status(401).json({ error: 'Invalid password. Please try again.' });
       return;
     }
 
@@ -242,7 +312,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
         winrate: user.winrate,
         arena: user.arena,
         badges: user.badges,
-        metamaskAddress: user.metamaskAddress,
+        walletAddress: user.walletAddress,
       },
     });
   } catch (error) {
