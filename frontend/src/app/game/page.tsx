@@ -21,7 +21,7 @@ export default function GamePage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const { emit, on, off, connected } = useSocket();
-  const { connected: metaMaskConnected } = useMetaMask();
+  const { connected: metaMaskConnected, connect } = useMetaMask();
   const { bettingState, placeBet, settleBet, resetBetting } = useBetting();
   const [gameState, setGameState] = useState<GameState>('lobby');
   const [betAmount, setBetAmount] = useState(0);
@@ -34,6 +34,7 @@ export default function GamePage() {
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('javascript');
   const [testResults, setTestResults] = useState<any[]>([]);
+  const [selectedLanguage, setSelectedLanguage] = useState('javascript');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -143,6 +144,7 @@ export default function GamePage() {
       setTestResults([]);
       setCryptoBetting(false);
       resetBetting();
+      setLanguage(selectedLanguage);
     }, 3000);
   }
 
@@ -163,22 +165,28 @@ export default function GamePage() {
     toast.error(data.message || 'An error occurred');
   }
 
-  function startMatchmaking() {
+  async function startMatchmaking() {
     if (!connected) {
       toast.error('Not connected to server');
       return;
     }
 
     if (cryptoBetting && !metaMaskConnected) {
-      toast.error('Please connect MetaMask for crypto betting');
-      return;
+      toast('Connecting MetaMask for crypto betting...');
+      try {
+        await connect();
+      } catch (error) {
+        toast.error('MetaMask connection required for crypto betting');
+        return;
+      }
     }
 
     setGameState('matchmaking');
     emit('join_matchmaking', { 
       betAmount: cryptoBetting ? 0 : betAmount,
       cryptoBetting,
-      cryptoBetAmount: cryptoBetting ? cryptoBetAmount : null
+      cryptoBetAmount: cryptoBetting ? cryptoBetAmount : null,
+      language: selectedLanguage
     });
   }
 
@@ -197,13 +205,14 @@ export default function GamePage() {
     emit('submit_code', {
       matchId,
       code,
-      language,
+      language: selectedLanguage,
     });
     toast('Submitting code...');
   }
 
   function requestHint() {
     emit('request_hint', { matchId });
+    toast('Hint requested! Check the problem description.');
   }
 
   if (loading || !user) {
@@ -328,6 +337,31 @@ export default function GamePage() {
                       transition={{ duration: 1.5, ease: "easeOut" }}
                       className="h-4 rounded-full bg-gradient-to-r from-primary-500 via-yellow-500 to-purple-500"
                     />
+                  </div>
+                </div>
+
+                {/* Language Selection */}
+                <div className="mb-8">
+                  <h3 className="text-2xl font-bold mb-6 flex items-center">
+                    <Zap className="w-6 h-6 mr-3" />
+                    Programming Language 💻
+                  </h3>
+                  <div className="grid grid-cols-4 gap-3 mb-8">
+                    {['javascript', 'python', 'java', 'cpp'].map((lang) => (
+                      <motion.button
+                        key={lang}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setSelectedLanguage(lang)}
+                        className={`p-4 rounded-xl font-bold text-lg transition-all ${
+                          selectedLanguage === lang
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
+                            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        }`}
+                      >
+                        {lang === 'javascript' ? 'JS' : lang === 'cpp' ? 'C++' : lang.charAt(0).toUpperCase() + lang.slice(1)}
+                      </motion.button>
+                    ))}
                   </div>
                 </div>
 
@@ -671,19 +705,11 @@ export default function GamePage() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-bold text-2xl">Code Editor</h3>
-                <select
-                  id="language-select"
-                  aria-label="Select programming language"
-                  title="Select programming language"
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-lg"
-                >
-                  <option value="javascript">JavaScript</option>
-                  <option value="python">Python</option>
-                  <option value="java">Java</option>
-                  <option value="cpp">C++</option>
-                </select>
+                <div className="text-lg font-medium text-gray-400">
+                  {selectedLanguage === 'javascript' ? 'JavaScript' : 
+                   selectedLanguage === 'cpp' ? 'C++' : 
+                   selectedLanguage.charAt(0).toUpperCase() + selectedLanguage.slice(1)}
+                </div>
               </div>
               <textarea
                 value={code}

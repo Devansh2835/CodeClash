@@ -192,14 +192,6 @@ export default function Home() {
         <p className="text-gray-300 mb-6">
           Join thousands of developers competing in the ultimate coding arena.
         </p>
-        <motion.button 
-          onClick={handleStartGaming}
-          whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(34, 197, 94, 0.4)" }}
-          whileTap={{ scale: 0.95 }}
-          className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-4 px-12 rounded-2xl shadow-2xl transition-all duration-300 text-xl border-2 border-green-400/50"
-        >
-          {user ? '🎮 Start Gaming Now!' : '🚀 Login & Start Battle!'}
-        </motion.button>
         </motion.div>
       </div>
     </div>
