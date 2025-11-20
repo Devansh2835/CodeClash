@@ -5,6 +5,7 @@ interface MatchmakingRequest {
   trophies: number;
   betAmount: number;
   socketId: string;
+  language: string;
 }
 
 const MATCHMAKING_QUEUE_KEY = 'matchmaking:queue';
@@ -32,10 +33,12 @@ export async function joinQueue(request: MatchmakingRequest): Promise<Matchmakin
     const trophyDiff = Math.abs(opponent.trophies - request.trophies);
     // Check if bet amounts match
     const betMatch = opponent.betAmount === request.betAmount;
+    // Check if languages match
+    const languageMatch = opponent.language === request.language;
     // Check not same user
     const differentUser = opponent.userId !== request.userId;
 
-    if (trophyDiff <= TROPHY_RANGE && betMatch && differentUser) {
+    if (trophyDiff <= TROPHY_RANGE && betMatch && languageMatch && differentUser) {
       // Found a match! Remove opponent from queue
       await redis.lRem(MATCHMAKING_QUEUE_KEY, 1, data);
       return opponent;

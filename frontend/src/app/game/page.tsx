@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Trophy, Swords, Crown, Zap, Users, Target } from 'lucide-react';
@@ -35,6 +35,7 @@ export default function GamePage() {
   const [language, setLanguage] = useState('javascript');
   const [testResults, setTestResults] = useState<any[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -50,6 +51,7 @@ export default function GamePage() {
     on('game_end', handleGameEnd);
     on('tab_switch_warning', handleTabSwitchWarning);
     on('disqualified', handleDisqualified);
+    on('hint_received', handleHintReceived);
     on('error', handleError);
 
     return () => {
@@ -60,9 +62,19 @@ export default function GamePage() {
       off('game_end');
       off('tab_switch_warning');
       off('disqualified');
+      off('hint_received');
       off('error');
     };
   }, [user, loading]);
+
+  // Timer cleanup
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
 
   // Tab switch detection
   useEffect(() => {
@@ -84,13 +96,35 @@ export default function GamePage() {
     setOpponent(data.opponent);
     setProblem(data.problem);
     setMatchId(data.matchId);
-    setTimeLeft(data.problem.timeLimitSeconds);
+    // Use AI-provided estimated time
+    setTimeLeft(data.problem.timeLimitSeconds || 1200);
     setGameState('in_game');
     toast.success('Opponent found! Get ready...');
   }
 
   function handleGameStart(data: any) {
     toast.success('Battle started! Code fast!');
+    
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
+    // Start countdown timer
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          // Time's up!
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          toast.error('⏰ Time\'s up!');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   }
 
   function handleSubmissionResult(data: any) {
@@ -111,6 +145,12 @@ export default function GamePage() {
 
   function handleGameEnd(data: any) {
     const won = data.winner === user?.id;
+    
+    // Stop timer immediately
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     setTimeLeft(0);
     
     // Handle crypto betting settlement
@@ -156,13 +196,22 @@ export default function GamePage() {
 
   function handleDisqualified(data: any) {
     toast.error('❌ You have been disqualified for tab switching!');
-    // stop the timer and return to lobby
+    
+    // Stop timer and return to lobby
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     setTimeLeft(0);
     setGameState('lobby');
   }
 
   function handleError(data: any) {
     toast.error(data.message || 'An error occurred');
+  }
+
+  function handleHintReceived(data: any) {
+    toast.success(data.message || data.hint, { duration: 5000 });
   }
 
   async function startMatchmaking() {
@@ -212,7 +261,6 @@ export default function GamePage() {
 
   function requestHint() {
     emit('request_hint', { matchId });
-    toast('Hint requested! Check the problem description.');
   }
 
   if (loading || !user) {
@@ -282,13 +330,13 @@ export default function GamePage() {
             </motion.p>
           </motion.div>
 
-          <div className="grid lg:grid-cols-3 gap-8 relative z-10">
+          <div className="grid lg:grid-cols-3 gap-4 md:gap-8 relative z-10">
             {/* Main Battle Section */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
-              className="lg:col-span-2 space-y-8"
+              className="lg:col-span-2 space-y-4 md:space-y-8"
             >
               {/* Current Arena */}
               <motion.div 
@@ -296,31 +344,31 @@ export default function GamePage() {
                 className="card bg-gradient-to-br from-gray-800 via-gray-900 to-black border-2 shadow-2xl" 
                 style={{ borderColor: currentArena.color, boxShadow: `0 0 30px ${currentArena.color}40` }}
               >
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center space-x-6">
+                <div className="flex flex-col md:flex-row items-center justify-between mb-4 md:mb-8 gap-4">
+                  <div className="flex items-center space-x-3 md:space-x-6">
                     <motion.div 
                       animate={{ rotate: [0, 10, -10, 0] }}
                       transition={{ duration: 2, repeat: Infinity }}
-                      className="text-8xl"
+                      className="text-4xl md:text-8xl"
                     >
                       {currentArena.icon}
                     </motion.div>
-                    <div>
-                      <h2 className="text-4xl font-bold mb-2" style={{ color: currentArena.color }}>
+                    <div className="text-center md:text-left">
+                      <h2 className="text-xl md:text-4xl font-bold mb-1 md:mb-2" style={{ color: currentArena.color }}>
                         {currentArena.name} Arena
                       </h2>
-                      <p className="text-gray-400 text-lg">{currentArena.description}</p>
+                      <p className="text-gray-400 text-sm md:text-lg">{currentArena.description}</p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-center md:text-right">
                     <motion.div 
                       animate={{ scale: [1, 1.1, 1] }}
                       transition={{ duration: 2, repeat: Infinity }}
-                      className="text-4xl font-bold text-yellow-400 mb-2"
+                      className="text-2xl md:text-4xl font-bold text-yellow-400 mb-1 md:mb-2"
                     >
                       {user.trophies} 🏆
                     </motion.div>
-                    <div className="text-sm text-gray-400">
+                    <div className="text-xs md:text-sm text-gray-400">
                       {currentArena.maxTrophies - user.trophies} to next arena
                     </div>
                   </div>
@@ -341,19 +389,19 @@ export default function GamePage() {
                 </div>
 
                 {/* Language Selection */}
-                <div className="mb-8">
-                  <h3 className="text-2xl font-bold mb-6 flex items-center">
-                    <Zap className="w-6 h-6 mr-3" />
+                <div className="mb-4 md:mb-8">
+                  <h3 className="text-lg md:text-2xl font-bold mb-3 md:mb-6 flex items-center">
+                    <Zap className="w-4 h-4 md:w-6 md:h-6 mr-2 md:mr-3" />
                     Programming Language 💻
                   </h3>
-                  <div className="grid grid-cols-4 gap-3 mb-8">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-4 md:mb-8">
                     {['javascript', 'python', 'java', 'cpp'].map((lang) => (
                       <motion.button
                         key={lang}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setSelectedLanguage(lang)}
-                        className={`p-4 rounded-xl font-bold text-lg transition-all ${
+                        className={`p-2 md:p-4 rounded-xl font-bold text-sm md:text-lg transition-all ${
                           selectedLanguage === lang
                             ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
                             : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
@@ -366,18 +414,18 @@ export default function GamePage() {
                 </div>
 
                 {/* Betting Options */}
-                <div className="mb-8">
-                  <h3 className="text-2xl font-bold mb-6 flex items-center">
-                    <Target className="w-6 h-6 mr-3" />
+                <div className="mb-4 md:mb-8">
+                  <h3 className="text-lg md:text-2xl font-bold mb-3 md:mb-6 flex items-center">
+                    <Target className="w-4 h-4 md:w-6 md:h-6 mr-2 md:mr-3" />
                     Betting Options 💰
                   </h3>
                   
                   {/* Betting Type Toggle */}
-                  <div className="flex mb-6 bg-gray-800 rounded-xl p-1">
+                  <div className="flex mb-3 md:mb-6 bg-gray-800 rounded-xl p-1">
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       onClick={() => setCryptoBetting(false)}
-                      className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+                      className={`flex-1 py-2 md:py-3 px-2 md:px-4 rounded-lg font-medium text-sm md:text-base transition-all ${
                         !cryptoBetting
                           ? 'bg-blue-500 text-white shadow-lg'
                           : 'text-gray-400 hover:text-white'
@@ -388,7 +436,7 @@ export default function GamePage() {
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       onClick={() => setCryptoBetting(true)}
-                      className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+                      className={`flex-1 py-2 md:py-3 px-2 md:px-4 rounded-lg font-medium text-sm md:text-base transition-all ${
                         cryptoBetting
                           ? 'bg-purple-500 text-white shadow-lg'
                           : 'text-gray-400 hover:text-white'
@@ -399,14 +447,14 @@ export default function GamePage() {
                   </div>
 
                   {!cryptoBetting ? (
-                    <div className="grid grid-cols-5 gap-3">
+                    <div className="grid grid-cols-3 md:grid-cols-5 gap-2 md:gap-3">
                       {[0, 1, 5, 10, 20].map((amount) => (
                         <motion.button
                           key={amount}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => setBetAmount(amount)}
-                          className={`p-4 rounded-xl font-bold text-lg transition-all ${
+                          className={`p-2 md:p-4 rounded-xl font-bold text-sm md:text-lg transition-all ${
                             betAmount === amount
                               ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
                               : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
@@ -417,14 +465,14 @@ export default function GamePage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
                       {['0.01', '0.05', '0.1', '0.2'].map((amount) => (
                         <motion.button
                           key={amount}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => setCryptoBetAmount(amount)}
-                          className={`p-4 rounded-xl font-bold text-lg transition-all ${
+                          className={`p-2 md:p-4 rounded-xl font-bold text-sm md:text-lg transition-all ${
                             cryptoBetAmount === amount
                               ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
                               : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
@@ -460,11 +508,11 @@ export default function GamePage() {
                   transition={{ duration: 2, repeat: Infinity }}
                   onClick={startMatchmaking}
                   disabled={!connected}
-                  className="w-full bg-gradient-to-r from-red-500 via-orange-500 to-red-600 hover:from-red-600 hover:to-orange-600 text-white font-bold py-8 px-8 rounded-2xl text-3xl flex items-center justify-center space-x-4 transition-all duration-300 shadow-2xl border-2 border-red-400"
+                  className="w-full bg-gradient-to-r from-red-500 via-orange-500 to-red-600 hover:from-red-600 hover:to-orange-600 text-white font-bold py-4 md:py-8 px-4 md:px-8 rounded-2xl text-lg md:text-3xl flex items-center justify-center space-x-2 md:space-x-4 transition-all duration-300 shadow-2xl border-2 border-red-400"
                 >
-                  <Swords className="w-10 h-10" />
+                  <Swords className="w-6 h-6 md:w-10 md:h-10" />
                   <span>{connected ? 'START BATTLE' : 'CONNECTING...'}</span>
-                  <Swords className="w-10 h-10" />
+                  <Swords className="w-6 h-6 md:w-10 md:h-10" />
                 </motion.button>
               </motion.div>
 
@@ -590,33 +638,33 @@ export default function GamePage() {
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
+            className="mb-4 md:mb-8"
           >
             <div className="card bg-gradient-to-r from-red-900/50 to-orange-900/50 border border-red-500/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-12">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center space-x-4 md:space-x-12">
                   <motion.div 
                     whileHover={{ scale: 1.1 }}
-                    className="text-center p-4 bg-blue-500/20 rounded-xl border border-blue-400"
+                    className="text-center p-2 md:p-4 bg-blue-500/20 rounded-xl border border-blue-400"
                   >
-                    <span className="text-sm text-gray-400 block mb-1">You</span>
-                    <div className="font-bold text-blue-400 text-xl">{user.username}</div>
-                    <div className="text-sm text-gray-400">{user.trophies} 🏆</div>
+                    <span className="text-xs md:text-sm text-gray-400 block mb-1">You</span>
+                    <div className="font-bold text-blue-400 text-sm md:text-xl">{user.username}</div>
+                    <div className="text-xs md:text-sm text-gray-400">{user.trophies} 🏆</div>
                   </motion.div>
                   <motion.div 
                     animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.2, 1] }}
                     transition={{ duration: 1, repeat: Infinity }}
-                    className="text-6xl"
+                    className="text-3xl md:text-6xl"
                   >
                     ⚔️
                   </motion.div>
                   <motion.div 
                     whileHover={{ scale: 1.1 }}
-                    className="text-center p-4 bg-red-500/20 rounded-xl border border-red-400"
+                    className="text-center p-2 md:p-4 bg-red-500/20 rounded-xl border border-red-400"
                   >
-                    <span className="text-sm text-gray-400 block mb-1">Opponent</span>
-                    <div className="font-bold text-red-400 text-xl">{opponent?.username}</div>
-                    <div className="text-sm text-gray-400">{opponent?.trophies} 🏆</div>
+                    <span className="text-xs md:text-sm text-gray-400 block mb-1">Opponent</span>
+                    <div className="font-bold text-red-400 text-sm md:text-xl">{opponent?.username}</div>
+                    <div className="text-xs md:text-sm text-gray-400">{opponent?.trophies} 🏆</div>
                   </motion.div>
                 </div>
                 <motion.div 
@@ -624,17 +672,17 @@ export default function GamePage() {
                   transition={{ duration: 1, repeat: Infinity }}
                   className="text-center"
                 >
-                  <div className="text-5xl font-bold text-yellow-400 mb-2">
+                  <div className="text-3xl md:text-5xl font-bold text-yellow-400 mb-2">
                     {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
                   </div>
-                  <div className="text-sm text-gray-400">Time Left</div>
+                  <div className="text-xs md:text-sm text-gray-400">Time Left</div>
                 </motion.div>
-                <div className="flex space-x-3">
+                <div className="flex space-x-2 md:space-x-3">
                   <motion.button 
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={requestHint} 
-                    className="btn btn-secondary btn-sm text-lg px-6 py-3"
+                    className="btn btn-secondary btn-sm text-sm md:text-lg px-3 md:px-6 py-2 md:py-3"
                   >
                     💡 Hint
                   </motion.button>
@@ -642,7 +690,7 @@ export default function GamePage() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={submitCode} 
-                    className="btn btn-success btn-sm text-lg px-6 py-3"
+                    className="btn btn-success btn-sm text-sm md:text-lg px-3 md:px-6 py-2 md:py-3"
                   >
                     🚀 Submit
                   </motion.button>
@@ -652,41 +700,41 @@ export default function GamePage() {
           </motion.div>
 
           {/* Game Area */}
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-8 h-full">
             {/* Problem Panel */}
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="card bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-500/30"
+              className="flex-1 card bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-500/30 overflow-y-auto"
             >
-              <h2 className="text-3xl font-bold mb-6 text-primary-400">{problem.title}</h2>
-              <div className="prose prose-invert max-w-none mb-8">
-                <p className="text-gray-300 text-lg leading-relaxed">{problem.description}</p>
+              <h2 className="text-xl md:text-3xl font-bold mb-4 md:mb-6 text-primary-400">{problem.title}</h2>
+              <div className="prose prose-invert max-w-none mb-4 md:mb-8">
+                <p className="text-gray-300 text-sm md:text-lg leading-relaxed whitespace-pre-wrap">{problem.description}</p>
               </div>
               
               {testResults.length > 0 && (
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-8"
+                  className="mt-4 md:mt-8"
                 >
-                  <h3 className="font-bold mb-4 text-xl">Test Results:</h3>
-                  <div className="space-y-3">
+                  <h3 className="font-bold mb-3 md:mb-4 text-lg md:text-xl">Test Results:</h3>
+                  <div className="space-y-2 md:space-y-3">
                     {testResults.map((result: any, index: number) => (
                       <motion.div 
                         key={index}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
-                        className={`p-4 rounded-lg border-l-4 ${
+                        className={`p-3 md:p-4 rounded-lg border-l-4 ${
                           result.passed 
                             ? 'bg-green-900/30 border-green-500 border border-green-500/50' 
                             : 'bg-red-900/30 border-red-500 border border-red-500/50'
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-lg">Test Case {index + 1}</span>
-                          <span className={`font-bold text-xl ${result.passed ? 'text-green-400' : 'text-red-400'}`}>
+                          <span className="text-sm md:text-lg">Test Case {index + 1}</span>
+                          <span className={`font-bold text-sm md:text-xl ${result.passed ? 'text-green-400' : 'text-red-400'}`}>
                             {result.passed ? '✅ PASSED' : '❌ FAILED'}
                           </span>
                         </div>
@@ -699,13 +747,13 @@ export default function GamePage() {
 
             {/* Code Editor */}
             <motion.div 
-              initial={{ opacity: 0, x: 0 }}
+              initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="card bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600"
+              className="flex-1 card bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600 flex flex-col"
             >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-2xl">Code Editor</h3>
-                <div className="text-lg font-medium text-gray-400">
+              <div className="flex items-center justify-between mb-4 md:mb-6">
+                <h3 className="font-bold text-lg md:text-2xl">Code Editor</h3>
+                <div className="text-sm md:text-lg font-medium text-gray-400">
                   {selectedLanguage === 'javascript' ? 'JavaScript' : 
                    selectedLanguage === 'cpp' ? 'C++' : 
                    selectedLanguage.charAt(0).toUpperCase() + selectedLanguage.slice(1)}
@@ -714,28 +762,29 @@ export default function GamePage() {
               <textarea
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                className="w-full h-96 bg-gray-900 border border-gray-600 rounded-lg p-6 font-mono text-lg resize-none focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                className="flex-1 w-full min-h-[300px] md:min-h-[400px] bg-gray-900 border border-gray-600 rounded-lg p-3 md:p-6 font-mono text-sm md:text-lg resize-none focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                 placeholder="// Write your solution here..."
               />
             </motion.div>
 
-            {/* Betting Panel - Only show if crypto betting is enabled */}
-            {cryptoBetting && matchId && (
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="lg:row-span-2"
-              >
-                <BettingPanel
-                  matchId={matchId}
-                  onBetPlaced={(amount, txHash) => {
-                    toast.success(`Crypto bet placed: ${amount} ETH`);
-                  }}
-                  disabled={gameState !== 'in_game'}
-                />
-              </motion.div>
-            )}
           </div>
+
+          {/* Betting Panel - Only show if crypto betting is enabled */}
+          {cryptoBetting && matchId && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 md:mt-8"
+            >
+              <BettingPanel
+                matchId={matchId}
+                onBetPlaced={(amount, txHash) => {
+                  toast.success(`Crypto bet placed: ${amount} ETH`);
+                }}
+                disabled={gameState !== 'in_game'}
+              />
+            </motion.div>
+          )}
         </div>
       </div>
     );

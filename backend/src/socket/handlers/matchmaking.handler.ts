@@ -2,14 +2,14 @@ import { Server, Socket } from 'socket.io';
 import { joinQueue, leaveQueue } from '../../services/matchmaking.service';
 import User from '../../models/User.model';
 import Match from '../../models/Match.model';
-import { generateAndSaveProblem } from '../../services/problemGeneration.service';
+import { aiService } from '../../services/ai.service';
 import env from '../../config/env';
 
 export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
-  socket.on('join_matchmaking', async (data: { betAmount: number }) => {
+  socket.on('join_matchmaking', async (data: { betAmount: number; language: string; cryptoBetting?: boolean; cryptoBetAmount?: string }) => {
     try {
       const userId = socket.data.userId;
-      const { betAmount } = data;
+      const { betAmount, language } = data;
 
       // Get user data
       const user = await User.findById(userId);
@@ -41,11 +41,12 @@ export function registerMatchmakingHandlers(io: Server, socket: Socket): void {
         trophies: user.trophies,
         betAmount: betAmount,
         socketId: socket.id,
+        language: language,
       });
 
       if (opponent) {
         // Match found!
-        await createMatch(io, user, opponent, betAmount);
+        await createMatch(io, user, opponent, betAmount, language);
       } else {
         // In queue, waiting
         socket.emit('matchmaking_status', {
@@ -78,7 +79,8 @@ async function createMatch(
   io: Server,
   player1Data: any,
   player2Request: any,
-  betAmount: number
+  betAmount: number,
+  language: string
 ): Promise<void> {
   try {
     // Get player2 data
@@ -87,15 +89,30 @@ async function createMatch(
       return;
     }
 
-    // Generate problem based on average trophy count
+    // Generate problem using AI service
     const avgTrophies = Math.round((player1Data.trophies + player2.trophies) / 2);
-    const problem = await generateAndSaveProblem(avgTrophies);
+    const problemData = await aiService.generateProblem(avgTrophies, language);
 
-    // Create match
+    // Create match with embedded problem data
     const match = await Match.create({
       player1: player1Data._id,
       player2: player2._id,
-      problem: problem._id,
+      problem: {
+        title: problemData.title,
+        description: problemData.description,
+        difficulty: problemData.difficulty,
+        timeLimitSeconds: problemData.estimated_time_seconds,
+        constraints: problemData.constraints,
+        hint: problemData.hint,
+        testCases: problemData.testcases.map(tc => ({
+          input: tc.stdin,
+          expectedOutput: tc.expected_stdout,
+          explanation: tc.explanation
+        })),
+        tags: problemData.tags,
+        language: problemData.language
+      },
+      timeLimit: problemData.estimated_time_seconds,
       status: 'IN_PROGRESS',
       betAmount: betAmount > 0 ? betAmount : undefined,
       startedAt: new Date(),
@@ -121,13 +138,13 @@ async function createMatch(
         trophies: player2.trophies,
       },
       problem: {
-        title: problem.title,
-        description: problem.description,
-        timeLimitSeconds: problem.timeLimitSeconds,
-        constraints: problem.constraints,
-        hint: problem.hint,
-        difficulty: problem.difficulty,
-        estimatedTimeSeconds: problem.estimatedTimeSeconds,
+        title: problemData.title,
+        description: problemData.description,
+        timeLimitSeconds: problemData.estimated_time_seconds,
+        constraints: problemData.constraints,
+        hint: problemData.hint,
+        difficulty: problemData.difficulty,
+        language: problemData.language,
       },
       betAmount,
     };
@@ -152,9 +169,74 @@ async function createMatch(
         matchId: match._id,
         startTime: Date.now(),
       });
+      
+      // Set match timeout based on AI estimated time
+      setTimeout(async () => {
+        try {
+          const currentMatch = await Match.findById(match._id);
+          if (currentMatch && currentMatch.status === 'IN_PROGRESS') {
+            // Time's up - determine winner based on submissions
+            await handleTimeUp(io, currentMatch);
+          }
+        } catch (error) {
+          console.error('Match timeout error:', error);
+        }
+      }, problemData.estimated_time_seconds * 1000);
     }, 3000);
   } catch (error) {
     console.error('Create match error:', error);
+  }
+}
+
+async function handleTimeUp(io: Server, match: any): Promise<void> {
+  try {
+    const p1Submissions = match.player1Submissions.filter((s: any) => s.allPassed);
+    const p2Submissions = match.player2Submissions.filter((s: any) => s.allPassed);
+    
+    let winnerId;
+    let reason = 'timeout';
+    
+    if (p1Submissions.length > 0 && p2Submissions.length === 0) {
+      winnerId = match.player1;
+      reason = 'timeout_winner_p1';
+    } else if (p2Submissions.length > 0 && p1Submissions.length === 0) {
+      winnerId = match.player2;
+      reason = 'timeout_winner_p2';
+    } else if (p1Submissions.length > 0 && p2Submissions.length > 0) {
+      // Both have passing solutions - compare runtimes
+      const p1Best = Math.min(...p1Submissions.map((s: any) => s.totalRuntime || Infinity));
+      const p2Best = Math.min(...p2Submissions.map((s: any) => s.totalRuntime || Infinity));
+      winnerId = p1Best <= p2Best ? match.player1 : match.player2;
+      reason = 'timeout_best_runtime';
+    } else {
+      // Neither has passing solution - it's a draw, but we need a winner
+      // Give it to player with more test cases passed
+      const p1BestScore = Math.max(...match.player1Submissions.map((s: any) => 
+        s.testResults ? s.testResults.filter((r: any) => r.passed).length : 0
+      ), 0);
+      const p2BestScore = Math.max(...match.player2Submissions.map((s: any) => 
+        s.testResults ? s.testResults.filter((r: any) => r.passed).length : 0
+      ), 0);
+      
+      winnerId = p1BestScore >= p2BestScore ? match.player1 : match.player2;
+      reason = 'timeout_most_tests';
+    }
+    
+    match.winner = winnerId;
+    match.status = 'COMPLETED';
+    match.endedAt = new Date();
+    await match.save();
+    
+    // Notify players
+    const roomId = `match:${match._id}`;
+    io.to(roomId).emit('game_end', {
+      winner: winnerId,
+      reason: reason,
+      message: 'Time\'s up!'
+    });
+    
+  } catch (error) {
+    console.error('Handle time up error:', error);
   }
 }
 

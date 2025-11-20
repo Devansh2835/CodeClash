@@ -17,8 +17,8 @@ export function registerGameHandlers(io: Server, socket: Socket): void {
       const userId = socket.data.userId;
       const { matchId, code, language } = data;
 
-      // Get match and problem
-      const match = await Match.findById(matchId).populate('problem');
+      // Get match with embedded problem
+      const match = await Match.findById(matchId);
       if (!match) {
         socket.emit('error', { message: 'Match not found' });
         return;
@@ -184,15 +184,20 @@ export function registerGameHandlers(io: Server, socket: Socket): void {
 
   socket.on('request_hint', async (data: { matchId: string }) => {
     try {
-      const match = await Match.findById(data.matchId).populate('problem');
-      if (!match) return;
+      const match = await Match.findById(data.matchId);
+      if (!match) {
+        socket.emit('error', { message: 'Match not found' });
+        return;
+      }
 
       const problem = match.problem as any;
-      socket.emit('hint', {
+      socket.emit('hint_received', {
         hint: problem.hint,
+        message: 'Hint: ' + problem.hint
       });
     } catch (error) {
       console.error('Request hint error:', error);
+      socket.emit('error', { message: 'Failed to get hint' });
     }
   });
 }

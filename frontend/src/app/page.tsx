@@ -60,7 +60,7 @@ export default function Home() {
             transition={{ delay: 0.2, type: "spring", stiffness: 100 }}
             className="mb-8"
           >
-            <h1 className="text-8xl font-bold mb-6 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent drop-shadow-2xl">
+            <h1 className="text-4xl md:text-6xl lg:text-8xl font-bold mb-4 md:mb-6 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent drop-shadow-2xl">
               Code Battle ⚔️
             </h1>
             <motion.div
@@ -84,7 +84,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed"
+            className="text-lg md:text-xl lg:text-2xl text-gray-300 mb-8 md:mb-12 max-w-3xl mx-auto leading-relaxed px-4"
           >
             🚀 Test your coding skills in <span className="text-cyan-400 font-bold">intense real-time 1v1 battles</span>.
             <br />Climb the ranks, earn trophies, and become a <span className="text-purple-400 font-bold">coding legend</span>! 🏆
@@ -94,13 +94,13 @@ export default function Home() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="flex flex-col sm:flex-row gap-6 justify-center items-center"
+            className="flex flex-col sm:flex-row gap-4 md:gap-6 justify-center items-center px-4"
           >
             <motion.button
               whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(6, 182, 212, 0.4)" }}
               whileTap={{ scale: 0.95 }}
               onClick={handleStartGaming}
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-6 px-16 rounded-2xl text-2xl shadow-2xl transition-all duration-300 border-2 border-cyan-400/50"
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-4 md:py-6 px-8 md:px-16 rounded-2xl text-lg md:text-2xl shadow-2xl transition-all duration-300 border-2 border-cyan-400/50 w-full sm:w-auto"
             >
               {user ? '🎮 Start Gaming' : '🚀 Login & Start'}
             </motion.button>
@@ -129,7 +129,7 @@ export default function Home() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.6 }}
-          className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-20"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 mb-12 md:mb-20 px-4"
         >
         <FeatureCard
           icon={<Swords className="w-12 h-12 text-cyan-400" />}
@@ -168,11 +168,11 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8 }}
-          className="text-5xl font-bold text-center mb-16 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+          className="text-2xl md:text-4xl lg:text-5xl font-bold text-center mb-8 md:mb-16 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent px-4"
         >
           🏰 5 Arenas to Conquer 🏰
         </motion.h2>
-        <div className="grid md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 px-4">
           <ArenaCard name="Bronze" range="0-999" color="bg-yellow-700" />
           <ArenaCard name="Silver" range="1000-1999" color="bg-gray-400" />
           <ArenaCard name="Gold" range="2000-2999" color="bg-yellow-500" />

@@ -17,7 +17,21 @@ import mongoose, { Schema, Document } from 'mongoose';
  export interface IMatch extends Document {
  player1: mongoose.Types.ObjectId;
  player2: mongoose.Types.ObjectId;
- problem: mongoose.Types.ObjectId;
+ problem: {
+   title: string;
+   description: string;
+   difficulty: string;
+   timeLimitSeconds: number;
+   constraints: string;
+   hint: string;
+   testCases: {
+     input: string;
+     expectedOutput: string;
+     explanation: string;
+   }[];
+   tags: string[];
+   language: string;
+ } | mongoose.Types.ObjectId;
  winner?: mongoose.Types.ObjectId;
  status: 'WAITING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
  player1Submissions: ISubmission[];
@@ -28,6 +42,7 @@ import mongoose, { Schema, Document } from 'mongoose';
  player2Disqualified: boolean;
  betAmount?: number;
  betId?: mongoose.Types.ObjectId;
+ timeLimit?: number;
  startedAt?: Date;
  endedAt?: Date;
  createdAt: Date;
@@ -63,8 +78,7 @@ import mongoose, { Schema, Document } from 'mongoose';
       required: true,
     },
     problem: {
-      type: Schema.Types.ObjectId,
-      ref: 'Problem',
+      type: Schema.Types.Mixed,
       required: true,
     },
     winner: {
@@ -93,6 +107,7 @@ import mongoose, { Schema, Document } from 'mongoose';
       type: Schema.Types.ObjectId,
       ref: 'Bet',
     },
+    timeLimit: Number,
     startedAt: Date,
     endedAt: Date,
   },

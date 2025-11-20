@@ -1,0 +1,77 @@
+Follow these rules strictly:
+
+1. **Input/Output format**  
+   - Output only one JSON object. No extra text.  
+   - JSON fields required:  
+     - `id` (string): short unique id for this generation (ISO timestamp or UUID-like).  
+     - `title` (string): one-line title like LeetCode problems.  
+     - `description` (string): concise problem statement like LeetCode. Include input/output format clearly. Be explicit about stdin/stdout format.  
+     - `difficulty` (string): one of `Easy`, `Medium`, `Hard`, `Very Hard`, `Expert`.  
+     - `difficulty_score` (number): 1-10 (1 easiest, 10 hardest).  
+     - `estimated_time_seconds` (number): integer seconds for solving (300-5400 range).  
+     - `hint` (string): short helpful hint ≤ 30 words. Should nudge toward solution approach without revealing it.  
+     - `constraints` (string): explicit input constraints and ranges.  
+     - `language` (string): programming language this problem is optimized for.
+     - `testcases` (array of 4 objects): each object must have:
+         - `stdin` (string): exact input for program stdin.
+         - `expected_stdout` (string): exact expected output (trim trailing newlines).
+         - `explanation` (string): why this test case is important (1-2 sentences).
+     - `tags` (array of strings): algorithmic concepts like `["arrays","greedy","dp"]`.  
+     - `generation_notes` (string): brief reasoning for time estimate and approach (≤ 2 sentences).
+
+2. **Language-specific optimization**
+   - **JavaScript**: Focus on array methods, string manipulation, object handling. Use appropriate JS idioms.
+   - **Python**: Leverage list comprehensions, built-in functions, clean syntax. Python-friendly algorithms.
+   - **Java**: Object-oriented approach, collections framework, type safety considerations.
+   - **C++**: Performance-focused, STL usage, memory efficiency, competitive programming style.
+   - Tailor problem complexity and expected approaches to the target language strengths.
+
+3. **Trophy-based difficulty mapping**
+   - 0–999: `Easy` (difficulty_score 2–3) - Basic loops, conditionals, simple arrays
+   - 1000–1999: `Medium` (4–5) - Two pointers, hash maps, basic recursion
+   - 2000–2999: `Hard` (6–7) - Dynamic programming, graph algorithms, advanced data structures
+   - 3000–3999: `Very Hard` (8) - Complex algorithms, optimization problems
+   - 4000+: `Expert` (9–10) - Advanced competitive programming concepts
+   
+4. **Test cases requirements**
+   - Exactly 4 test cases covering:
+     1. Simple/basic case
+     2. Typical/average case  
+     3. Large/performance case (within constraints)
+     4. Edge/corner case
+   - Each `stdin` as single string with `\n` for line breaks
+   - `expected_stdout` must match exact program output
+   - Keep test data realistic but test constraint limits
+
+5. **Time estimates by difficulty**
+   - Easy: 300–900s
+   - Medium: 900–1800s  
+   - Hard: 1800–2700s
+   - Very Hard: 2700–3600s
+   - Expert: 3600–5400s
+   - Adjust based on algorithmic complexity
+
+6. **Problem quality standards**
+   - LeetCode-style concise descriptions
+   - Unambiguous requirements
+   - Language-agnostic logic but language-optimized approach
+   - No solution code in any field
+   - Hint points to algorithmic concept, not implementation
+   - Original problems (no copyright issues)
+
+7. **Topic diversity**
+   - Rotate between: arrays, strings, trees, graphs, math, greedy, DP, bit manipulation, sorting, two-pointers, sliding-window, BFS/DFS, heaps, etc.
+   - Consider language strengths when selecting topics
+   - Avoid repetition in successive generations
+
+8. **Input validation**
+   - If trophies missing/invalid: return `{"error": "invalid_input", "message": "trophies must be integer >= 0"}`
+   - If language missing/invalid: return `{"error": "invalid_input", "message": "language must be one of: javascript, python, java, cpp"}`
+
+9. **Format requirements**
+   - All numeric fields as numbers (not strings)
+   - Exactly 4 testcases in array
+   - Keep generation_notes ≤ 2 sentences
+   - No extra text outside JSON object
+
+Generate a programming problem for trophies: {trophies} and language: {language}
