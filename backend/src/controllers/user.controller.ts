@@ -34,7 +34,7 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
         arena: user.arena,
         badges: user.badges,
         bestRuntime: user.bestRuntime,
-        metamaskAddress: user.metamaskAddress,
+        walletAddress: user.walletAddress,
       },
       recentMatches: recentMatches.map((match) => ({
         id: match._id,
@@ -149,12 +149,12 @@ export async function connectMetaMask(req: Request, res: Response): Promise<void
       return;
     }
 
-    user.metamaskAddress = address;
+    user.walletAddress = address;
     await user.save();
 
     res.json({
       message: 'MetaMask connected successfully',
-      address: user.metamaskAddress,
+      address: user.walletAddress,
     });
   } catch (error) {
     console.error('Connect MetaMask error:', error);

@@ -11,7 +11,7 @@ import mongoose, { Schema, Document } from 'mongoose';
  wins: number;
  losses: number;
  badges: string[];
- metamaskAddress?: string;
+ walletAddress?: string;
  betsToday: number;
  lastBetDate?: Date;
  bestRuntime?: number;
@@ -70,7 +70,7 @@ import mongoose, { Schema, Document } from 'mongoose';
       type: [String],
       default: [],
     },
-    metamaskAddress: {
+    walletAddress: {
       type: String,
       sparse: true,
     },

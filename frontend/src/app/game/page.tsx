@@ -6,9 +6,12 @@ import { motion } from 'framer-motion';
 import { Trophy, Swords, Crown, Zap, Users, Target } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
+import { useMetaMask } from '@/hooks/useMetaMask';
+import { useBetting } from '@/hooks/useBetting';
 import { game } from '@/lib/api';
 import { ARENAS, getArenaByTrophies } from '@/constants/arenas';
 import Leaderboard from '@/components/game/Leaderboard';
+import BettingPanel from '@/components/game/BettingPanel';
 import toast from 'react-hot-toast';
 
 type GameState = 'lobby' | 'matchmaking' | 'in_game';
@@ -17,8 +20,12 @@ export default function GamePage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const { emit, on, off, connected } = useSocket();
+  const { connected: metaMaskConnected } = useMetaMask();
+  const { bettingState, placeBet, settleBet, resetBetting } = useBetting();
   const [gameState, setGameState] = useState<GameState>('lobby');
   const [betAmount, setBetAmount] = useState(0);
+  const [cryptoBetting, setCryptoBetting] = useState(false);
+  const [cryptoBetAmount, setCryptoBetAmount] = useState('0.01');
   const [problem, setProblem] = useState<any>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [opponent, setOpponent] = useState<any>(null);
@@ -102,6 +109,24 @@ export default function GamePage() {
 
   function handleGameEnd(data: any) {
     const won = data.winner === user?.id;
+    
+    // Handle crypto betting settlement
+    if (cryptoBetting && matchId && bettingState.matchId === matchId) {
+      const winnerAddress = won ? user?.walletAddress : opponent?.walletAddress;
+      const loserAddress = won ? opponent?.walletAddress : user?.walletAddress;
+      
+      if (winnerAddress && loserAddress) {
+        settleBet(matchId, winnerAddress, loserAddress)
+          .then(() => {
+            toast.success(won ? '🎉 Crypto winnings sent to your wallet!' : '💀 Better luck next time!');
+          })
+          .catch((error) => {
+            console.error('Settlement error:', error);
+            toast.error('Failed to settle bet automatically');
+          });
+      }
+    }
+    
     if (won) {
       toast.success('🏆 Victory! +100 trophies');
     } else {
@@ -115,6 +140,8 @@ export default function GamePage() {
       setOpponent(null);
       setCode('');
       setTestResults([]);
+      setCryptoBetting(false);
+      resetBetting();
     }, 3000);
   }
 
@@ -139,8 +166,17 @@ export default function GamePage() {
       return;
     }
 
+    if (cryptoBetting && !metaMaskConnected) {
+      toast.error('Please connect MetaMask for crypto betting');
+      return;
+    }
+
     setGameState('matchmaking');
-    emit('join_matchmaking', { betAmount });
+    emit('join_matchmaking', { 
+      betAmount: cryptoBetting ? 0 : betAmount,
+      cryptoBetting,
+      cryptoBetAmount: cryptoBetting ? cryptoBetAmount : null
+    });
   }
 
   function cancelMatchmaking() {
@@ -296,25 +332,85 @@ export default function GamePage() {
                 <div className="mb-8">
                   <h3 className="text-2xl font-bold mb-6 flex items-center">
                     <Target className="w-6 h-6 mr-3" />
-                    Optional Betting 💰
+                    Betting Options 💰
                   </h3>
-                  <div className="grid grid-cols-5 gap-3">
-                    {[0, 1, 5, 10, 20].map((amount) => (
-                      <motion.button
-                        key={amount}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setBetAmount(amount)}
-                        className={`p-4 rounded-xl font-bold text-lg transition-all ${
-                          betAmount === amount
-                            ? 'bg-gradient-to-r from-primary-500 to-purple-500 text-white shadow-lg'
-                            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                        }`}
-                      >
-                        {amount === 0 ? 'Free' : `$${amount}`}
-                      </motion.button>
-                    ))}
+                  
+                  {/* Betting Type Toggle */}
+                  <div className="flex mb-6 bg-gray-800 rounded-xl p-1">
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setCryptoBetting(false)}
+                      className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+                        !cryptoBetting
+                          ? 'bg-blue-500 text-white shadow-lg'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      💵 Traditional ($)
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setCryptoBetting(true)}
+                      className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+                        cryptoBetting
+                          ? 'bg-purple-500 text-white shadow-lg'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      🦊 Crypto (ETH)
+                    </motion.button>
                   </div>
+
+                  {!cryptoBetting ? (
+                    <div className="grid grid-cols-5 gap-3">
+                      {[0, 1, 5, 10, 20].map((amount) => (
+                        <motion.button
+                          key={amount}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setBetAmount(amount)}
+                          className={`p-4 rounded-xl font-bold text-lg transition-all ${
+                            betAmount === amount
+                              ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+                              : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                          }`}
+                        >
+                          {amount === 0 ? 'Free' : `$${amount}`}
+                        </motion.button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-3">
+                      {['0.01', '0.05', '0.1', '0.2'].map((amount) => (
+                        <motion.button
+                          key={amount}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setCryptoBetAmount(amount)}
+                          className={`p-4 rounded-xl font-bold text-lg transition-all ${
+                            cryptoBetAmount === amount
+                              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
+                              : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                          }`}
+                        >
+                          {amount} ETH
+                        </motion.button>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {cryptoBetting && (
+                    <div className="mt-4 p-4 bg-purple-900/20 rounded-lg border border-purple-500/30">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">Winner gets:</span>
+                        <span className="text-green-400 font-bold">{(parseFloat(cryptoBetAmount) * 2 * 0.98).toFixed(4)} ETH (98%)</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm mt-1">
+                        <span className="text-gray-400">Platform fee:</span>
+                        <span className="text-yellow-400 font-bold">{(parseFloat(cryptoBetAmount) * 2 * 0.02).toFixed(4)} ETH (2%)</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Start Battle Button */}
@@ -519,7 +615,7 @@ export default function GamePage() {
           </motion.div>
 
           {/* Game Area */}
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid lg:grid-cols-3 gap-8">
             {/* Problem Panel */}
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
@@ -566,7 +662,7 @@ export default function GamePage() {
 
             {/* Code Editor */}
             <motion.div 
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0, x: 0 }}
               animate={{ opacity: 1, x: 0 }}
               className="card bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600"
             >
@@ -590,6 +686,23 @@ export default function GamePage() {
                 placeholder="// Write your solution here..."
               />
             </motion.div>
+
+            {/* Betting Panel - Only show if crypto betting is enabled */}
+            {cryptoBetting && matchId && (
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="lg:row-span-2"
+              >
+                <BettingPanel
+                  matchId={matchId}
+                  onBetPlaced={(amount, txHash) => {
+                    toast.success(`Crypto bet placed: ${amount} ETH`);
+                  }}
+                  disabled={gameState !== 'in_game'}
+                />
+              </motion.div>
+            )}
           </div>
         </div>
       </div>
